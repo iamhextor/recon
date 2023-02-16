@@ -1,1 +1,27 @@
+import requests
 
+# Define the file containing URLs to test, one per line
+url_file = "urls.txt"
+
+# Loop through URLs in the file
+with open(url_file, "r") as f:
+    for line in f:
+        # Strip newline character from the end of the line
+        url = line.strip()
+
+        # Send the request to the web application using requests and get the response headers
+        response = requests.get(url)
+        headers = response.headers
+
+        # Check for the X-Frame-Options and X-Content-Type-Options headers in the response
+        x_frame_options = headers.get("X-Frame-Options")
+        if x_frame_options and x_frame_options.lower() == "deny":
+            print(f"{url} is secure against clickjacking attacks")
+        else:
+            print(f"{url} is vulnerable to clickjacking attacks")
+
+        x_content_type_options = headers.get("X-Content-Type-Options")
+        if x_content_type_options and x_content_type_options.lower() == "nosniff":
+            print(f"{url} is secure against MIME sniffing attacks")
+        else:
+            print(f"{url} is vulnerable to MIME sniffing attacks")
