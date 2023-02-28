@@ -1,1 +1,13 @@
+#!/bin/bash
 
+# Set the directory containing the files you want to loop over
+dir="/path/to/directory"
+
+# Use the find command to generate a list of files in the directory
+files=$(find $dir -type f)
+
+# Loop over each file in the list
+while read -r file; do
+  # Perform some operation on the file, e.g. print the file name
+  echo $file
+done <<< "$files"
