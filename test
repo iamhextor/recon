@@ -1,16 +1,20 @@
 import requests
-from urllib.parse import urlparse
 
-#Read urls from txt file
-with open('urls.txt') as f:
-    urls = f.read().splitlines()
+# Open file containing URLs
+with open('urls.txt', 'r') as f:
+    urls = f.readlines()
 
+# Check each URL for insecure transport vulnerability and redirection
 for url in urls:
-    try:
-        response = requests.get(url, verify=False)
-        if urlparse(url).scheme == "https":
-            print(f"{url} is running on HTTPS")
-        else:
-            print(f"{url} is not running on HTTPS")
-    except requests.exceptions.RequestException as e:
-        print(f"An error occurred while trying to access {url}: {e}")
+    url = url.strip()  # remove any leading/trailing whitespace
+
+    # Check if URL starts with http:// instead of https://
+    if url.startswith('http://'):
+        try:
+            response = requests.get(url, timeout=5, allow_redirects=True)
+            if response.url.startswith('http://'):
+                print(f'Insecure transport vulnerability found: {url}')
+            elif response.url.startswith('https://'):
+                print(f'URL is secure: {url}')
+        except:
+            print(f'Error checking URL: {url}')
