@@ -7,7 +7,7 @@ with open('urls.txt') as f:
 
 for url in urls:
     try:
-        response = requests.get(url)
+        response = requests.get(url, verify=False)
         if urlparse(url).scheme == "https":
             print(f"{url} is running on HTTPS")
         else:
