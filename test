@@ -16,5 +16,5 @@ for url in urls:
                 print(f'Insecure transport vulnerability found: {url}')
             elif response.url.startswith('https://'):
                 print(f'URL is secure: {url}')
-        except:
-            print(f'Error checking URL: {url}')
+        except requests.exceptions.RequestException as e:
+            print(f'Error checking URL: {url}. Error: {e}')
