@@ -1,1 +1,33 @@
+from concurrent.futures import ThreadPoolExecutor
 
+# suppress SSL warnings
+requests.packages.urllib3.disable_warnings()
+
+username = input("Username (E-id): ")
+password = input("Password: ")
+
+# read in IPs from file
+with open("ips.txt", "r") as f:
+    ips_to_search = [ip.strip() for ip in f.readlines()]
+
+# make API call to get all sites
+sites_url = "https://nexpose_ip:port/api/3/sites?page=0&size=500&sort=id,asc"
+sites_response = requests.get(sites_url, auth=(username, password), verify=False)
+sites_json = json.loads(sites_response.content)
+
+# create a list of site IDs to search
+site_ids = [site["id"] for site in sites_json["resources"]]
+
+# function to search for an IP in a site
+def search_site(site_id):
+    site_url = f"https://nexpose_ip:port/api/3/sites/{site_id}/assets"
+    site_response = requests.get(site_url, auth=(username, password), verify=False)
+    site_json = json.loads(site_response.content)
+    
+    for asset in site_json["resources"]:
+        if asset["ip"] in ips_to_search:
+            print(f"{asset['ip']} is in site {site_id} ({asset['siteName']})")
+
+# search all sites in parallel
+with ThreadPoolExecutor(max_workers=10) as executor:
+    executor.map(search_site, site_ids)
