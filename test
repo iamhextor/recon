@@ -1,1 +1,30 @@
+import requests
+import csv
+import urllib3
+from getpass import getpass
 
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+username = input("Username (E-id): ")
+password = getpass("Password: ")
+
+# API call to retrieve all the sites
+sites_url = "https://nespose_ip:port/api/3/sites?page=0&size=50&sort=id,asc"
+sites_response = requests.get(sites_url, auth=(username, password), verify=False)
+if sites_response.status_code != 200:
+    print(f"Error retrieving sites: {sites_response.status_code}")
+    exit()
+
+# Extracting site names and last scan dates from the API response
+sites_json = sites_response.json()
+site_info = [(site['name'], site['lastScan']) for site in sites_json['resources']]
+
+# Saving site information in a CSV file
+with open('site_info.csv', mode='w', newline='') as file:
+    writer = csv.writer(file)
+    writer.writerow(['Site Name', 'Last Scan Date'])
+    writer.writerows(site_info)
+
+# Printing all the site names and last scan dates
+for site_name, last_scan_date in site_info:
+    print(f"{site_name}: {last_scan_date}")
