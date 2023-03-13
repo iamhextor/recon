@@ -1,1 +1,34 @@
+import requests
+import urllib3
+from getpass import getpass
 
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+username = input("Username (E-id): ")
+password = getpass("Password: ")
+
+# API call to retrieve all the sites
+sites_url = "https://nexpose_url:port/api/3/sites?page=0&size=50&sort=id,asc"
+sites_response = requests.get(sites_url, auth=(username, password), verify=False)
+if sites_response.status_code != 200:
+    print(f"Error retrieving sites: {sites_response.status_code}")
+    exit()
+
+# Extracting site names, last scan dates, and scan engines from the API response
+sites_json = sites_response.json()
+site_info = []
+for site in sites_json['resources']:
+    site_name = site['name']
+    last_scan_date = site.get('lastScan', 'N/A')
+    site_id = site['id']
+    scan_engine_url = f"https://nexpose_url:port/api/3/sites/{site_id}/scan_engine"
+    scan_engine_response = requests.get(scan_engine_url, auth=(username, password), verify=False)
+    if scan_engine_response.status_code == 200:
+        scan_engine = scan_engine_response.json()['name']
+    else:
+        scan_engine = 'N/A'
+    site_info.append((site_name, last_scan_date, scan_engine))
+
+# Printing all the site names, last scan dates, and scan engines
+for site_name, last_scan_date, scan_engine in site_info:
+    print(f"{site_name} = last_scan_date: {last_scan_date} | scan_engine: {scan_engine}")
