@@ -1,1 +1,74 @@
+package main
 
+import (
+    "fmt"
+    "net/http"
+    "io/ioutil"
+    "os"
+    "strconv"
+    "strings"
+    "golang.org/x/crypto/ssh/terminal"
+)
+
+func main() {
+    // Disable SSL verification warning
+    http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+
+    // Prompt for username and password
+    fmt.Print("Username (E-id): ")
+    var username string
+    fmt.Scanln(&username)
+    fmt.Print("Password: ")
+    password, _ := terminal.ReadPassword(0)
+
+    // API call to retrieve all the sites
+    sitesURL := "https://nespose_ip:port/api/3/sites?page=0&size=50&sort=id,asc"
+    req, _ := http.NewRequest("GET", sitesURL, nil)
+    req.SetBasicAuth(username, string(password))
+    res, err := http.DefaultClient.Do(req)
+    if err != nil || res.StatusCode != 200 {
+        fmt.Printf("Error retrieving sites: %v\n", res.StatusCode)
+        os.Exit(1)
+    }
+    defer res.Body.Close()
+
+    // Extracting site names and last scan dates from the API response
+    sitesJSON, _ := ioutil.ReadAll(res.Body)
+    sitesMap := make(map[string]interface{})
+    json.Unmarshal(sitesJSON, &sitesMap)
+    siteResources := sitesMap["resources"].([]interface{})
+    siteInfo := make([][3]string, len(siteResources))
+    for i, site := range siteResources {
+        siteMap := site.(map[string]interface{})
+        siteID := strconv.Itoa(int(siteMap["id"].(float64)))
+        siteName := siteMap["name"].(string)
+        lastScanDate, ok := siteMap["lastScan"].(string)
+        if !ok {
+            lastScanDate = "N/A"
+        }
+        
+        // Get scan engine information
+        scanEngineURL := fmt.Sprintf("https:/nexpose_url:port/api/3/sites/%s/scan_engine", siteID)
+        req, _ := http.NewRequest("GET", scanEngineURL, nil)
+        req.SetBasicAuth(username, string(password))
+        res, _ := http.DefaultClient.Do(req)
+        if res.StatusCode != 200 {
+            siteInfo[i] = [3]string{siteName, lastScanDate, "N/A"}
+        } else {
+            scanEngineJSON, _ := ioutil.ReadAll(res.Body)
+            scanEngineMap := make(map[string]interface{})
+            json.Unmarshal(scanEngineJSON, &scanEngineMap)
+            scanEngineName, ok := scanEngineMap["name"].(string)
+            if !ok {
+                scanEngineName = "N/A"
+            }
+            siteInfo[i] = [3]string{siteName, lastScanDate, scanEngineName}
+        }
+        res.Body.Close()
+    }
+
+    // Printing all the site names, last scan dates, and scan engine names
+    for _, info := range siteInfo {
+        fmt.Printf("%s = %s = %s\n", info[0], info[1], info[2])
+    }
+}
