@@ -1,1 +1,36 @@
+import requests
+import json
+import urllib3
+from getpass import getpass
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+username = input("Username (E-id): ")
+password = getpass("Password: ")
+
+# API call to retrieve all the sites
+sites_url = "https://nespose_ip:port/api/3/sites?page=0&size=10&sort=id,asc"
+sites_response = requests.get(sites_url, auth=(username, password), verify=False)
+if sites_response.status_code != 200:
+    print(f"Error retrieving sites: {sites_response.status_code}")
+    exit()
+
+# Extracting site names from the API response
+sites_json = sites_response.json()
+site_names = [site['name'] for site in sites_json['resources']]
+
+# Printing site name, last scan date, and used scan engine for each site
+for site_name in site_names:
+    # API call to retrieve site details
+    site_details_url = f"https://nespose_ip:port/api/3/sites/name/{site_name}"
+    site_details_response = requests.get(site_details_url, auth=(username, password), verify=False)
+    if site_details_response.status_code != 200:
+        print(f"Error retrieving site details for {site_name}: {site_details_response.status_code}")
+        continue
+    
+    # Extracting last scan date and used scan engine from the site details
+    site_details_json = site_details_response.json()
+    last_scan_date = site_details_json['lastScan']['endTime']
+    scan_engine = site_details_json['engine']['name']
+    
+    # Printing site name, last scan date, and used scan engine
+    print(f"{site_name}: {last_scan_date} (Scan Engine: {scan_engine})")
