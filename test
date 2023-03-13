@@ -1,1 +1,34 @@
+response = requests.get(site_url, auth=(username, password), verify=False)
+if response.status_code == 200:
+    site_id = None
+    for site in response.json()["resources"]:
+        if site["name"].lower() == site_name.lower():
+            site_id = site["id"]
+            break
+    if site_id is None:
+        print(f"Site {site_name} not found")
+        exit()
+else:
+    print("Failed to get site list")
+    exit()
 
+# Search for the IP address in the specified site
+data = {
+    "filters": [
+        {
+            "field": "ip-address",
+            "operator": "is",
+            "value": ip_to_search
+        }
+    ],
+    "match": "any",
+    "site-id": site_id
+}
+headers = {
+    "Content-Type": "application/json"
+}
+response = requests.post(url=url, headers=headers, auth=(username, password), json=data, verify=False)
+if response.status_code == 200 and response.json()["resources"]:
+    print(f"IP {ip_to_search} is added in site {site_name}")
+else:
+    print(f"IP {ip_to_search} is not added in site {site_name}")
