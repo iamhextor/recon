@@ -1,1 +1,47 @@
+ips_to_search = []
 
+# Read the IP addresses from ips.txt file
+with open("ips.txt", "r") as f:
+    ips_to_search = [line.strip() for line in f]
+
+# Get the list of sites
+response = requests.get(site_url, auth=(username, password), verify=False)
+if response.status_code == 200:
+    site_list = response.json()["resources"]
+else:
+    print("Failed to get site list")
+    exit()
+
+# Define a function to search for an IP address in a subset of sites
+def search_ip_in_sites(start_index, end_index, ip_to_search):
+    found_in_sites = []
+    for site in site_list[start_index:end_index]:
+        site_id = site["id"]
+        site_name = site["name"]
+        url = f"{site_url}/{site_id}/included_targets"
+        response = requests.get(url, auth=(username, password), verify=False)
+        if response.status_code == 200 and response.json() and "data" in response.json():
+            included_targets = response.json()["data"]
+            for target in included_targets:
+                if target["address"] == ip_to_search:
+                    found_in_sites.append(site_name)
+                    break
+    if found_in_sites:
+        print(f"IP {ip_to_search} is added in the following site(s): {', '.join(found_in_sites)}")
+    else:
+        print(f"IP {ip_to_search} is not added in any site")
+
+# Split the site list into smaller chunks
+num_threads = 4
+chunk_size = len(site_list) // num_threads
+threads = []
+for i in range(num_threads):
+    start_index = i * chunk_size
+    end_index = start_index + chunk_size if i < num_threads - 1 else len(site_list)
+    thread = threading.Thread(target=search_ip_in_sites, args=(start_index, end_index, ips_to_search[0]))
+    thread.start()
+    threads.append(thread)
+    
+# Wait for all threads to finish
+for thread in threads:
+    thread.join()
