@@ -1,39 +1,55 @@
-# Read the IPs from the file
+import concurrent.futures
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+# Get user input
+username = input("Username (E-id): ")
+password = getpass("Password: ")
+
+# Read IPs from input file
 with open("ips.txt", "r") as f:
-    ips_to_search = f.readlines()
+    ips_to_search = [line.strip() for line in f.readlines()]
 
-# Get the list of all sites
-url = "https://nexpose_ip:port/api/3/sites?page=0&size=500&sort=id,asc"
-headers = {'Content-Type': "application/json"}
-response = requests.get(url=url, headers=headers, auth=(username, password), verify=False)
+# API endpoint URLs
+sites_url = "https://nespose_ip:port/api/3/sites?page=0&size=500&sort=id,asc"
+site_targets_url = "https://nespose_ip:port/api/3/sites/{}/included_targets"
 
-if response.status_code == 200:
-    sites = response.json()["resources"]
-else:
-    print("Failed to get sites list")
-    exit()
+# Function to check if an IP is present in a given site
+def check_site(ip, site_id):
+    headers = {
+        'Content-Type': "application/json",
+    }
+    url = site_targets_url.format(site_id)
+    response = requests.get(url, headers=headers, auth=(username, password), verify=False)
+    if response.status_code == 200:
+        targets = response.json()
+        for target in targets:
+            if target.get('address') == ip:
+                return site_id
+    return None
 
-# Search each IP in all sites' included targets
+# Main program
 output = {}
-for ip in ips_to_search:
-    ip = ip.strip()
-    output[ip] = []
-    for site in sites:
-        site_id = site["id"]
-        url = f"https://nexpose_ip:port/api/3/sites/{site_id}/included_targets"
-        headers = {'Content-Type': "application/json"}
-        response = requests.get(url=url, headers=headers, auth=(username, password), verify=False)
-        
-        if response.status_code == 200:
-            targets = response.json()["resources"]
-            for target in targets:
-                if target["address"] == ip:
-                    output[ip].append(site["name"])
-                    break
+with requests.Session() as session:
+    session.auth = (username, password)
+    session.verify = False
 
-# Print the output
-for ip, sites in output.items():
-    if len(sites) == 0:
-        print(f"{ip} not found in any site")
-    else:
-        print(f"{ip} found in sites: {', '.join(sites)}")
+    # Get list of all sites
+    sites_response = session.get(sites_url)
+    sites_data = sites_response.json().get('sites', [])
+
+    # Search for IPs in each site
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        future_to_site = {}
+        for site in sites_data:
+            site_id = site.get('id')
+            future_to_site[executor.submit(check_site, ips_to_search[0], site_id)] = site_id
+        for future in concurrent.futures.as_completed(future_to_site):
+            site_id = future_to_site[future]
+            result = future.result()
+            if result is not None:
+                output[ips_to_search[0]] = site_id
+
+# Print output
+for ip, site_id in output.items():
+    print(f"IP {ip} is present in site {site_id}")
