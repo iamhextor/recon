@@ -1,1 +1,41 @@
+import requests
 
+url = "https://nespose_ip:port/api/3/assets/search?page=0&size=500&sort=id,asc"
+site_url = "https://nespose_ip:port/api/3/sites"
+username = input("Username (E-id): ")
+password = input("Password: ")
+
+with open("ips.txt", "r") as f:
+    ips_to_search = f.read().splitlines()
+
+for ip in ips_to_search:
+    data = {
+        "filters": [
+            {
+                "field": "ip-address",
+                "operator": "is",
+                "value": ip
+            }
+        ],
+        "match": "any"
+    }
+    headers = {
+        "Content-Type": "application/json"
+    }
+    response = requests.post(url=url, headers=headers, auth=(username, password), json=data, verify=False)
+    if response.status_code == 200 and response.json()["resources"]:
+        site_ids = set()
+        for asset in response.json()["resources"]:
+            if "site-id" in asset:
+                site_ids.add(asset["site-id"])
+        if site_ids:
+            for site_id in site_ids:
+                response = requests.get(f"{site_url}/{site_id}", auth=(username, password), verify=False)
+                if response.status_code == 200:
+                    print(f"IP {ip} is added in site {response.json()['name']}")
+                else:
+                    print(f"Failed to get site name for site id {site_id}")
+        else:
+            print(f"IP {ip} is not added in any site")
+    else:
+        print(f"IP {ip} not found")
