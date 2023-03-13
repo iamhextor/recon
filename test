@@ -1,1 +1,39 @@
+# Read the IPs from the file
+with open("ips.txt", "r") as f:
+    ips_to_search = f.readlines()
 
+# Get the list of all sites
+url = "https://nexpose_ip:port/api/3/sites?page=0&size=500&sort=id,asc"
+headers = {'Content-Type': "application/json"}
+response = requests.get(url=url, headers=headers, auth=(username, password), verify=False)
+
+if response.status_code == 200:
+    sites = response.json()["resources"]
+else:
+    print("Failed to get sites list")
+    exit()
+
+# Search each IP in all sites' included targets
+output = {}
+for ip in ips_to_search:
+    ip = ip.strip()
+    output[ip] = []
+    for site in sites:
+        site_id = site["id"]
+        url = f"https://nexpose_ip:port/api/3/sites/{site_id}/included_targets"
+        headers = {'Content-Type': "application/json"}
+        response = requests.get(url=url, headers=headers, auth=(username, password), verify=False)
+        
+        if response.status_code == 200:
+            targets = response.json()["resources"]
+            for target in targets:
+                if target["address"] == ip:
+                    output[ip].append(site["name"])
+                    break
+
+# Print the output
+for ip, sites in output.items():
+    if len(sites) == 0:
+        print(f"{ip} not found in any site")
+    else:
+        print(f"{ip} found in sites: {', '.join(sites)}")
