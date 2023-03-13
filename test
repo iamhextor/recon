@@ -1,1 +1,39 @@
+import requests
+import urllib3
+from getpass import getpass
+from tqdm import tqdm
 
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+username = input("Username (E-id): ")
+password = getpass("Password: ")
+
+# API call to retrieve all the sites
+sites_url = "https://nespose_ip:port/api/3/sites?page=0&size=50&sort=id,asc"
+sites_response = requests.get(sites_url, auth=(username, password), verify=False)
+if sites_response.status_code != 200:
+    print(f"Error retrieving sites: {sites_response.status_code}")
+    exit()
+
+# Extracting site names and last scan dates from the API response
+sites_json = sites_response.json()
+site_info = []
+for site in tqdm(sites_json['resources'], desc="Retrieving site information"):
+    site_id = site['id']
+    site_name = site['name']
+    last_scan_date = site.get('lastScan', 'N/A')
+    
+    # Get scan engine information
+    scan_engine_url = f"https:/nexpose_url:port/api/3/sites/{site_id}/scan_engine"
+    scan_engine_response = requests.get(scan_engine_url, auth=(username, password), verify=False)
+    if scan_engine_response.status_code != 200:
+        scan_engine_name = "N/A"
+    else:
+        scan_engine_json = scan_engine_response.json()
+        scan_engine_name = scan_engine_json.get('name', 'N/A')
+    
+    site_info.append((site_name, last_scan_date, scan_engine_name))
+
+# Printing all the site names, last scan dates, and scan engine names
+for site_name, last_scan_date, scan_engine_name in site_info:
+    print(f"{site_name} = {last_scan_date} = {scan_engine_name}")
