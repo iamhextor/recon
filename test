@@ -1,1 +1,44 @@
+import requests
 
+# Set the API endpoint URL
+api_url = "https://your-nexpose-instance.com/api/3"
+
+# Set the API credentials
+nexpose_username = "your_username"
+nexpose_password = "your_password"
+
+# Authenticate with the API using your credentials
+auth_request = requests.post(api_url + "/authenticate", auth=(nexpose_username, nexpose_password))
+
+# Get the session ID from the authentication response
+session_id = auth_request.json()['token']
+
+# Set the headers for API requests
+headers = {
+    "Authorization": f"Basic {session_id}",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3"
+}
+
+# Get the list of sites
+site_list_request = requests.get(api_url + "/site/listing.jsp", headers=headers)
+
+# Parse the response to get the site IDs and names
+site_list = []
+for line in site_list_request.content.decode().split("\n"):
+    if line.startswith("<option value"):
+        site_id = line.split('"')[1]
+        site_name = line.split(">")[1].split("<")[0]
+        site_list.append((site_id, site_name))
+
+# Get the last scan date for each site
+scan_dates = []
+for site_id, site_name in site_list:
+    site_details_request = requests.get(api_url + f"/site/{site_id}.xml", headers=headers)
+    last_scan_date = site_details_request.text.split("<LastScanDate>")[1].split("</LastScanDate>")[0]
+    scan_dates.append((site_name, last_scan_date))
+
+# Print the results to the console and a text file
+with open("nexpose_scan_dates.txt", "w") as f:
+    for site_name, last_scan_date in scan_dates:
+        print(f"{site_name}: {last_scan_date}")
+        f.write(f"{site_name}: {last_scan_date}\n")
