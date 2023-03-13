@@ -1,1 +1,51 @@
+import requests
+import urllib3
+from getpass import getpass
+import json
 
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+username = input("Username (E-id): ")
+password = getpass("Password: ")
+
+# Read in the list of IPs from ips.txt file
+with open("ips.txt", "r") as f:
+    ips = [ip.strip() for ip in f.readlines()]
+
+# API call to retrieve all the sites
+sites_url = "https://nexpose_url:port/api/3/sites?page=0&size=50&sort=id,asc"
+sites_response = requests.get(sites_url, auth=(username, password), verify=False)
+if sites_response.status_code != 200:
+    print(f"Error retrieving sites: {sites_response.status_code}")
+    exit()
+
+# Extracting site names and IPs from the API response
+sites_json = sites_response.json()
+site_ips = {}
+for site in sites_json['resources']:
+    site_name = site['name']
+    site_id = site['id']
+    site_ips[site_name] = []
+    # API call to retrieve all assets for the site
+    assets_url = f"https://nexpose_url:port/api/3/sites/{site_id}/assets"
+    assets_response = requests.get(assets_url, auth=(username, password), verify=False)
+    if assets_response.status_code != 200:
+        print(f"Error retrieving assets for site {site_name}: {assets_response.status_code}")
+        continue
+    # Extracting IP addresses for the site
+    assets_json = assets_response.json()
+    for asset in assets_json['resources']:
+        ip = asset.get('ip', '')
+        if ip in ips:
+            site_ips[site_name].append(ip)
+
+# Printing all the site names where each IP was found
+for ip in ips:
+    found_sites = []
+    for site_name, site_ips_list in site_ips.items():
+        if ip in site_ips_list:
+            found_sites.append(site_name)
+    if found_sites:
+        print(f"{ip} found in: {', '.join(found_sites)}")
+    else:
+        print(f"{ip} not found in any site.")
