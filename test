@@ -1,17 +1,1 @@
-sites_response = requests.get(sites_url, auth=(username, password), verify=False)
-if sites_response.status_code != 200:
-    print(f"Error retrieving sites: {sites_response.status_code}")
-    exit()
 
-# Extracting site names and last scan dates from the API response
-sites_json = sites_response.json()
-site_info = [(site['name'], site['lastScan']) for site in sites_json['resources']]
-
-# Saving site information in a text file
-with open('site_info.txt', mode='w') as file:
-    for site_name, last_scan_date in site_info:
-        file.write(f"{site_name}: {last_scan_date}\n")
-
-# Printing all the site names and last scan dates
-for site_name, last_scan_date in site_info:
-    print(f"{site_name}: {last_scan_date}")
