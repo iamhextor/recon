@@ -49,7 +49,7 @@ for url in urls:
     try:
         ip_address = dns.resolver.query(url, "A")[0].to_text()
         output_file.write("\033[92mDNS record published\033[0m\n")
-    except dns.resolver.NoAnswer:
+    except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN):
         output_file.write("\033[91mDNS record not published\033[0m\n")
     
     # Add a separator for the next URL
