@@ -1,1 +1,22 @@
-9684bdc1-deca-4b98-a011-fe3b9704cb47
+import dns.resolver
+filename = "input.txt"
+
+with open(filename) as f:
+    urls = f.readlines()
+
+for url in urls:
+    url = url.rstrip()    
+    try:
+        spf_answer = dns.resolver.query(url, 'TXT')
+        for rdata in spf_answer:
+            if 'v=spf1' in str(rdata):
+                print(f"{url} SPF record: {rdata}")
+    except:
+        print(f"{url} has no SPF record.")    
+    try:
+        dmarc_answer = dns.resolver.query(f"_dmarc.{url}", 'TXT')
+        for rdata in dmarc_answer:
+            if 'v=DMARC1' in str(rdata):
+                print(f"{url} DMARC record: {rdata}")
+    except:
+        print(f"{url} has no DMARC record.")
