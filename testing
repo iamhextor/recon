@@ -35,19 +35,20 @@ for url in urls:
             if 'v=DMARC1' in str(rdata):
                 dmarc_found = True
                 dmarc_result = colored("DMARC record published.", "green")
-                
-                # Check if a DMARC policy is enabled
-                dmarc_policy = [x.split(";") for x in rdata.strings][0]
-                if any(x.strip().startswith("p=quarantine") or x.strip().startswith("p=reject") for x in dmarc_policy):
-                    dmarc_policy_result = colored("DMARC policy enabled.", "green")
-                else:
-                    dmarc_policy_result = colored("DMARC policy not enabled.", "yellow")
                 break
         if not dmarc_found:
             dmarc_result = colored("No DMARC record published.", "red")
-            dmarc_policy_result = ""
     except:
         dmarc_result = colored("No DMARC record published.", "red")
+    
+    # Check if a DMARC policy is enabled
+    if dmarc_found:
+        dmarc_policy = [x.split(";") for x in rdata.strings][0]
+        if any(x.strip().startswith("p=quarantine") or x.strip().startswith("p=reject") for x in dmarc_policy):
+            dmarc_policy_result = colored("DMARC policy enabled.", "green")
+        else:
+            dmarc_policy_result = colored("DMARC policy not enabled.", "yellow")
+    else:
         dmarc_policy_result = ""
         
     # Check if DNS record is published
