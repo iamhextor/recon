@@ -20,12 +20,12 @@ for url in urls:
         for rdata in spf_answer:
             if 'v=spf1' in str(rdata):
                 spf_found = True
-                print(colored(f"{url} SPF record published.", "green"))
+                spf_result = colored("SPF record published.", "green")
                 break
         if not spf_found:
-            print(colored(f"{url} has no SPF record published.", "red"))
+            spf_result = colored("No SPF record published.", "red")
     except:
-        print(colored(f"{url} has no SPF record published.", "red"))
+        spf_result = colored("No SPF record published.", "red")
     
     # Retrieve the DMARC record
     try:
@@ -34,23 +34,33 @@ for url in urls:
         for rdata in dmarc_answer:
             if 'v=DMARC1' in str(rdata):
                 dmarc_found = True
-                print(colored(f"{url} DMARC record published.", "green"))
+                dmarc_result = colored("DMARC record published.", "green")
                 
                 # Check if a DMARC policy is enabled
                 dmarc_policy = [x.split(";") for x in rdata.strings][0]
-                if any(x.strip().startswith("p=reject") for x in dmarc_policy):
-                    print(colored(f"{url} DMARC policy enabled.", "green"))
+                if any(x.strip().startswith("p=quarantine") or x.strip().startswith("p=reject") for x in dmarc_policy):
+                    dmarc_policy_result = colored("DMARC policy enabled.", "green")
                 else:
-                    print(colored(f"{url} DMARC policy not enabled.", "yellow"))
+                    dmarc_policy_result = colored("DMARC policy not enabled.", "yellow")
                 break
         if not dmarc_found:
-            print(colored(f"{url} has no DMARC record published.", "red"))
+            dmarc_result = colored("No DMARC record published.", "red")
+            dmarc_policy_result = ""
     except:
-        print(colored(f"{url} has no DMARC record published.", "red"))
+        dmarc_result = colored("No DMARC record published.", "red")
+        dmarc_policy_result = ""
         
     # Check if DNS record is published
     try:
         dns_answer = dns.resolver.query(url, 'A')
-        print(colored(f"{url} DNS record published.", "green"))
+        dns_result = colored("DNS record published.", "green")
     except:
-        print(colored(f"{url} has no DNS record published.", "red"))
+        dns_result = colored("No DNS record published.", "red")
+    
+    # Print the results for the current URL
+    print(url)
+    print(spf_result)
+    print(dmarc_result)
+    print(dmarc_policy_result)
+    print(dns_result)
+    print("="*30)
