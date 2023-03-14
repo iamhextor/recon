@@ -1,72 +1,59 @@
 import dns.resolver
-import re
-from termcolor import colored
+import requests
 
-# Define the filename containing the URLs
-filename = "urls.txt"
+# Open the file with URLs
+with open("urls.txt", "r") as file:
+    urls = [line.strip() for line in file]
 
-# Open the file and read in the URLs
-with open(filename) as f:
-    urls = f.readlines()
+# Open the output file
+output_file = open("output.txt", "w")
 
-# Iterate over the URLs and retrieve the SPF and DMARC records
+# Check each URL
 for url in urls:
-    # Strip newline character from the end of the URL
-    url = url.rstrip()
+    # Print the URL
+    output_file.write(f"{url}\n")
     
-    # Retrieve the SPF record
+    # Check SPF record
     try:
-        spf_answer = dns.resolver.query(url, 'TXT')
-        spf_found = False
-        for rdata in spf_answer:
-            if 'v=spf1' in str(rdata):
-                spf_found = True
-                spf_result = colored("SPF record published.", "green")
-                break
-        if not spf_found:
-            spf_result = colored("No SPF record published.", "red")
-    except:
-        spf_result = colored("No SPF record published.", "red")
+        spf = dns.resolver.query(url, "TXT")
+        spf_record = ""
+        for rdata in spf:
+            spf_record += rdata.to_text()
+        if "v=spf1" in spf_record:
+            output_file.write("\033[92mSPF record found\033[0m\n")
+        else:
+            output_file.write("\033[91mSPF record not found\033[0m\n")
+    except dns.resolver.NoAnswer:
+        output_file.write("\033[91mSPF record not found\033[0m\n")
     
-    # Retrieve the DMARC record
+    # Check DMARC record
     try:
-        dmarc_answer = dns.resolver.query(f"_dmarc.{url}", 'TXT')
-        dmarc_found = False
-        for rdata in dmarc_answer:
-            if 'v=DMARC1' in str(rdata):
-                dmarc_found = True
-                dmarc_result = colored("DMARC record published.", "green")
-                
-                # Check if a DMARC policy is enabled
-                dmarc_policy_str = str(rdata).lower()
-                policy_match = re.search(r'p\s*=(\s*[a-z]+\s*;)+', dmarc_policy_str)
-                if policy_match:
-                    policy_value = policy_match.group().replace('p=', '').strip().split(';')[0]
-                    if policy_value == 'quarantine' or policy_value == 'reject':
-                        dmarc_policy_result = colored("DMARC policy enabled.", "green")
-                    else:
-                        dmarc_policy_result = colored("DMARC policy not enabled.", "yellow")
-                else:
-                    dmarc_policy_result = colored("DMARC policy not enabled.", "yellow")
-                break
-        if not dmarc_found:
-            dmarc_result = colored("No DMARC record published.", "red")
-            dmarc_policy_result = ""
-    except:
-        dmarc_result = colored("No DMARC record published.", "red")
-        dmarc_policy_result = ""
-        
-    # Check if DNS record is published
+        dmarc = dns.resolver.query(f"_dmarc.{url}", "TXT")
+        dmarc_record = ""
+        for rdata in dmarc:
+            dmarc_record += rdata.to_text()
+        if "v=DMARC1" in dmarc_record:
+            output_file.write("\033[92mDMARC record published\033[0m\n")
+            if "p=reject" in dmarc_record or "p=quarantine" in dmarc_record:
+                output_file.write("\033[92mDMARC policy enabled\033[0m\n")
+            else:
+                output_file.write("\033[93mDMARC policy not enabled\033[0m\n")
+        else:
+            output_file.write("\033[91mNo DMARC record published\033[0m\n")
+            output_file.write("\033[93mDMARC policy not enabled\033[0m\n")
+    except dns.resolver.NoAnswer:
+        output_file.write("\033[91mNo DMARC record published\033[0m\n")
+        output_file.write("\033[93mDMARC policy not enabled\033[0m\n")
+
+    # Check DNS record
     try:
-        dns_answer = dns.resolver.query(url, 'A')
-        dns_result = colored("DNS record published.", "green")
-    except:
-        dns_result = colored("No DNS record published.", "red")
+        ip_address = dns.resolver.query(url, "A")[0].to_text()
+        output_file.write("\033[92mDNS record published\033[0m\n")
+    except dns.resolver.NoAnswer:
+        output_file.write("\033[91mDNS record not published\033[0m\n")
     
-    # Print the results for the current URL
-    print(url)
-    print(spf_result)
-    print(dmarc_result)
-    print(dmarc_policy_result)
-    print(dns_result)
-    print("="*30)
+    # Add a separator for the next URL
+    output_file.write("="*50 + "\n")
+
+# Close the output file
+output_file.close()
