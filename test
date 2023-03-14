@@ -1,1 +1,37 @@
+def main(ip, site_name):
+    # Create a connection to the Nexpose instance
+    configuration = nexpose_client.Configuration(
+        host='https://<NEXPOSE_HOSTNAME_OR_IP>',
+        username='<USERNAME>',
+        password='<PASSWORD>'
+    )
+    api_client = nexpose_client.ApiClient(configuration)
 
+    # Get the site ID for the given site name
+    sites_api = nexpose_client.SitesApi(api_client)
+    site_list = sites_api.list_sites()
+    site = next((s for s in site_list.resources if s.name == site_name), None)
+
+    if site is None:
+        print(f"Site '{site_name}' not found")
+        return
+
+    # Start a discovery scan on the given IP address
+    scans_api = nexpose_client.ScansApi(api_client)
+    scan_request = nexpose_client.ScanCreateRequest(
+        site_id=site.id,
+        scan_type='discovery',
+        name=f"Discovery Scan for {ip}",
+        targets=[ip]
+    )
+    scan = scans_api.create_scan(scan_request)
+
+    print(f"Discovery scan started for IP {ip} with scan ID {scan.id}")
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Perform a discovery scan on a Nexpose Insight VM')
+    parser.add_argument('ip', type=str, help='The IP address to scan')
+    parser.add_argument('site_name', type=str, help='The name of the site to scan')
+    args = parser.parse_args()
+
+    main(args.ip, args.site_name)
