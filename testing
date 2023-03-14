@@ -1,0 +1,66 @@
+import dns.resolver
+from termcolor import colored
+
+# Define the filename containing the URLs
+filename = "urls.txt"
+
+# Open the file and read in the URLs
+with open(filename) as f:
+    urls = f.readlines()
+
+# Iterate over the URLs and retrieve the SPF and DMARC records
+for url in urls:
+    # Strip newline character from the end of the URL
+    url = url.rstrip()
+    
+    # Retrieve the SPF record
+    try:
+        spf_answer = dns.resolver.query(url, 'TXT')
+        spf_found = False
+        for rdata in spf_answer:
+            if 'v=spf1' in str(rdata):
+                spf_found = True
+                spf_result = colored("SPF record published.", "green")
+                break
+        if not spf_found:
+            spf_result = colored("No SPF record published.", "red")
+    except:
+        spf_result = colored("No SPF record published.", "red")
+    
+    # Retrieve the DMARC record
+    try:
+        dmarc_answer = dns.resolver.query(f"_dmarc.{url}", 'TXT')
+        dmarc_found = False
+        for rdata in dmarc_answer:
+            if 'v=DMARC1' in str(rdata):
+                dmarc_found = True
+                dmarc_result = colored("DMARC record published.", "green")
+                
+                # Check if a DMARC policy is enabled
+                dmarc_policy = [x.split(";") for x in rdata.strings][0]
+                if any(x.strip().startswith("p=quarantine") or x.strip().startswith("p=reject") for x in dmarc_policy):
+                    dmarc_policy_result = colored("DMARC policy enabled.", "green")
+                else:
+                    dmarc_policy_result = colored("DMARC policy not enabled.", "yellow")
+                break
+        if not dmarc_found:
+            dmarc_result = colored("No DMARC record published.", "red")
+            dmarc_policy_result = ""
+    except:
+        dmarc_result = colored("No DMARC record published.", "red")
+        dmarc_policy_result = ""
+        
+    # Check if DNS record is published
+    try:
+        dns_answer = dns.resolver.query(url, 'A')
+        dns_result = colored("DNS record published.", "green")
+    except:
+        dns_result = colored("No DNS record published.", "red")
+    
+    # Print the results for the current URL
+    print(url)
+    print(spf_result)
+    print(dmarc_result)
+    print(dmarc_policy_result)
+    print(dns_result)
+    print("="*30)
