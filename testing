@@ -1,1 +1,1 @@
-sed -n '/^---$/,/^---$/ { /^---$/d; p }' file.txt | grep -o '[a-zA-Z0-9.-]*\.[a-zA-Z]\{2,\}'
+sed -n '/^---$/,/^---$/p' file.txt | sed -n 's/.*\.\(.*\) *$/\0 \1/p' | awk '{print $1}'
