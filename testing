@@ -1,1 +1,1 @@
-sed -n '/^---$/,/^---$/p' file.txt | sed -n 's/.*\.\(.*\) *$/\0 \1/p' | awk '{print $1}'
+grep -E "$(python -c 'import termcolor; print(termcolor.colored("", "pink"))')" filename
