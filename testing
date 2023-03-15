@@ -1,1 +1,1 @@
-grep -E '\[(95|91)' file.txt | awk '{if (prev ~ /\[95/ && $0 ~ /\[95/) {prev="";} else {print prev;} prev=$0;} END {print prev;}'
+grep -E '\[(95|91)' file.txt | awk '{if (prev ~ /\[95/ && $0 ~ /\[95/) {prev="";} else {print prev;} if ($0 ~ /\[95/) {print "=================";} prev=$0;} END {print prev;}'
