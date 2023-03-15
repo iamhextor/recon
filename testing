@@ -1,1 +1,42 @@
-grep -E '\[(95|91)' file.txt | awk '{if (prev ~ /\[95/ && $0 ~ /\[95/) {prev="";} else {print prev;} if ($0 ~ /\[95/) {print "=================";} prev=$0;} END {print prev;}'
+import requests
+
+# Read the URL to test from a file
+with open("url.txt", "r") as f:
+    url = f.read().strip()
+
+# Define a list of origins to test
+origins = [
+    "http://attacker.com",
+    "https://attacker.com",
+    "http://example.com",
+    "https://example.com",
+    "null",
+    "*",
+]
+
+# Define a list of HTTP methods to test
+methods = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+
+# Define a list of headers to test
+headers = [
+    "Origin",
+    "X-Requested-With",
+    "X-CSRF-Token",
+    "Authorization",
+    "Accept",
+    "Accept-Encoding",
+    "Accept-Language",
+]
+
+# Send requests with different origin headers and check for the Access-Control-Allow-Origin header
+for origin in origins:
+    for method in methods:
+        for header in headers:
+            headers = {header: origin}
+            response = requests.request(method, url, headers=headers, cookies={"sessionid": "1234"}, allow_redirects=False)
+            if "Access-Control-Allow-Origin" in response.headers and response.headers["Access-Control-Allow-Origin"] != "*":
+                if "Access-Control-Allow-Credentials" in response.headers and response.headers["Access-Control-Allow-Credentials"] == "true":
+                    print(f"Vulnerable: {header} header allows requests from {origin} with credentials")
+            elif "Access-Control-Allow-Origin" in response.headers and response.headers["Access-Control-Allow-Origin"] == "*":
+                if "Access-Control-Allow-Credentials" in response.headers and response.headers["Access-Control-Allow-Credentials"] == "true":
+                    print(f"Potentially vulnerable: {header} header allows requests from any origin with credentials")
