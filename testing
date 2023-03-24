@@ -1,1 +1,22 @@
-
+DROP TABLE IF EXISTS #TIV
+SELECT * 
+INTO #TIV
+FROM (
+SELECT 
+	CI.u_agentlastseen AS insightlastseen
+	, CI.dv_cmdb_ci 
+	, CI.cmdb_ci
+	, CI.sys_id
+	, CI.last_scan_date
+	, CI.last_auth_scan_date
+	, MAX(CASE WHEN CI.u_os_description LIKE '%ESX%' OR CI.u_os_description LIKE '%ESXI%' OR CI.u_os_description LIKE '%VmWARE%' OR CI.os LIKE '%ESX%' OR CI.os LIKE '%ESXI%' OR CI.os LIKE '%VmWARE%' THEN CI.last_scan_date ELSE CI.last_auth_scan_date END) AS insightlastscandate
+	, NA.agentStatus AS insightagentstatus
+	, NA.agentSemanticVersion AS insightversion 
+	, NA.agentLastUpdateTime AS insightlastupdate
+	, ROW_NUMBER() OVER(PARTITION BY CI.cmdb_ci ORDER BY CI.u_agentlastseen DESC) AS RN
+FROM [VR_Reporting].[dbo].[sn_sec_cmn_src_ci] CI
+LEFT JOIN [SECOPS_EDW].[dbo].[tbl_Nexpose_Asset_Agent] NA ON CI.u_r7_agent_id=NA.AssetID
+WHERE last_auth_scan_date IS NOT NULL
+GROUP BY CI.u_agentlastseen, CI.dv_cmdb_ci, CI.cmdb_ci, CI.sys_id, CI.last_scan_date, CI.last_auth_scan_date, NA.agentStatus, NA.agentSemanticVersion, NA.agentLastUpdateTime
+) T
+WHERE RN=1
