@@ -19,5 +19,9 @@ for ip_range in ip_ranges:
     ip_list = ip_range_to_ips(ip_range)
     ips.extend(ip_list)
 
-for ip in ips:
-    print(ip)
+with open("output.txt", "w") as f:
+    for ip in ips:
+        f.write(ip + "\n")
+        print(ip)
+
+print("Output saved to output.txt")
