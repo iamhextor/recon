@@ -1,1 +1,37 @@
-
+SELECT
+    sn_sec_cmn_src_ci.display_name AS [CI Name],
+    MAX(COALESCE(insightlastscandate.max_scan_date, '1900-01-01')) AS [Insight Last Scan Date],
+    MAX(COALESCE(last_auth_scan_date.max_auth_scan_date, '1900-01-01')) AS [Last Authorized Scan Date],
+    MAX(COALESCE(last_scan_date.max_scan_date, '1900-01-01')) AS [Last Scan Date],
+    sn_sec_cmn_src_ci.u_agentversion AS [Agent Version],
+    sn_sec_cmn_src_ci.u_agentlastseen AS [Agent Last Seen],
+    sn_sec_cmn_src_ci.sys_updated_on AS [CI Last Updated]
+FROM sn_sec_cmn_src_ci
+LEFT JOIN (
+    SELECT
+        ci,
+        MAX(sys_created_on) AS max_scan_date
+    FROM insightlastscandate
+    GROUP BY ci
+) AS insightlastscandate ON sn_sec_cmn_src_ci.sys_id = insightlastscandate.ci
+LEFT JOIN (
+    SELECT
+        ci,
+        MAX(last_auth_scan_date) AS max_auth_scan_date
+    FROM vulnerability
+    GROUP BY ci
+) AS last_auth_scan_date ON sn_sec_cmn_src_ci.sys_id = last_auth_scan_date.ci
+LEFT JOIN (
+    SELECT
+        ci,
+        MAX(last_scan_date) AS max_scan_date
+    FROM vul_scan
+    GROUP BY ci
+) AS last_scan_date ON sn_sec_cmn_src_ci.sys_id = last_scan_date.ci
+GROUP BY
+    sn_sec_cmn_src_ci.display_name,
+    sn_sec_cmn_src_ci.u_agentversion,
+    sn_sec_cmn_src_ci.u_agentlastseen,
+    sn_sec_cmn_src_ci.sys_updated_on
+ORDER BY
+    sn_sec_cmn_src_ci.display_name;
