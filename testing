@@ -1,42 +1,23 @@
-import requests
+import socket
 
-# Read the URL to test from a file
-with open("url.txt", "r") as f:
-    url = f.read().strip()
+def ip_range_to_ips(ip_range):
+    start_ip, end_ip = ip_range.split('-')
+    start_ip_int = int.from_bytes(socket.inet_aton(start_ip), byteorder='big')
+    end_ip_int = int.from_bytes(socket.inet_aton(end_ip), byteorder='big')
+    ip_list = []
+    for ip_int in range(start_ip_int, end_ip_int+1):
+        ip = socket.inet_ntoa(ip_int.to_bytes(4, byteorder='big'))
+        ip_list.append(ip)
+    return ip_list
 
-# Define a list of origins to test
-origins = [
-    "http://attacker.com",
-    "https://attacker.com",
-    "http://example.com",
-    "https://example.com",
-    "null",
-    "*",
-]
+input_file = input("Enter the path of the input file: ")
+with open(input_file, 'r') as f:
+    ip_ranges = f.read().splitlines()
 
-# Define a list of HTTP methods to test
-methods = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+ips = []
+for ip_range in ip_ranges:
+    ip_list = ip_range_to_ips(ip_range)
+    ips.extend(ip_list)
 
-# Define a list of headers to test
-headers = [
-    "Origin",
-    "X-Requested-With",
-    "X-CSRF-Token",
-    "Authorization",
-    "Accept",
-    "Accept-Encoding",
-    "Accept-Language",
-]
-
-# Send requests with different origin headers and check for the Access-Control-Allow-Origin header
-for origin in origins:
-    for method in methods:
-        for header in headers:
-            headers = {header: origin}
-            response = requests.request(method, url, headers=headers, cookies={"sessionid": "1234"}, allow_redirects=False)
-            if "Access-Control-Allow-Origin" in response.headers and response.headers["Access-Control-Allow-Origin"] != "*":
-                if "Access-Control-Allow-Credentials" in response.headers and response.headers["Access-Control-Allow-Credentials"] == "true":
-                    print(f"Vulnerable: {header} header allows requests from {origin} with credentials")
-            elif "Access-Control-Allow-Origin" in response.headers and response.headers["Access-Control-Allow-Origin"] == "*":
-                if "Access-Control-Allow-Credentials" in response.headers and response.headers["Access-Control-Allow-Credentials"] == "true":
-                    print(f"Potentially vulnerable: {header} header allows requests from any origin with credentials")
+for ip in ips:
+    print(ip)
