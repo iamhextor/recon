@@ -1,45 +1,47 @@
 import requests
 import urllib3
 from getpass import getpass
-import time
-from progress.bar import IncrementalBar
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+# Get username and password from user
 username = input("Username (E-id): ")
 password = getpass("Password: ")
-ips_file = input("Enter the path of the IP list file: ")
 
 # Read IP addresses from input file
-with open(ips_file, "r") as f:
-    ip_list = f.read().splitlines()
+with open("ips.txt", "r") as f:
+    ips = [line.strip() for line in f]
 
-# API call to retrieve site information for each IP address
-site_info = []
-with IncrementalBar('Processing', max=len(ip_list)) as bar:
-    for ip_address in ip_list:
-        time.sleep(0.1)  # Add some delay to avoid rate limiting
-        sites_url = f"https://nexpose_url:port/api/3/sites/ip-address/{ip_address}"
-        sites_response = requests.get(sites_url, auth=(username, password), verify=False)
-        if sites_response.status_code == 200:
-            sites_json = sites_response.json()
-            site_id = sites_json['resources'][0]['id']
-            site_name = sites_json['resources'][0]['name']
+# API call to retrieve asset IDs for the specified IP addresses
+asset_ids = []
+for ip in ips:
+    asset_url = f"https://nexpose_url:port/api/3/assets?filter=search%3A%3D{ip}"
+    asset_response = requests.get(asset_url, auth=(username, password), verify=False)
+    if asset_response.status_code != 200:
+        print(f"Error retrieving assets for {ip}: {asset_response.status_code}")
+        continue
 
-            # API call to retrieve last authenticated scan date for the site
-            last_scan_url = f"https://nexpose_url:port/api/3/sites/{site_id}/scans/latest/authenticated"
-            last_scan_response = requests.get(last_scan_url, auth=(username, password), verify=False)
-            if last_scan_response.status_code == 200:
-                last_scan_json = last_scan_response.json()
-                last_scan_date = last_scan_json['endTime']
-                site_info.append((ip_address, site_name, last_scan_date))
-            else:
-                site_info.append((ip_address, site_name, "N/A"))
-        else:
-            site_info.append((ip_address, "N/A", "N/A"))
-        bar.next()
+    asset_json = asset_response.json()
+    if 'resources' not in asset_json or len(asset_json['resources']) == 0:
+        print(f"No assets found for {ip}")
+        continue
 
-# Printing last authenticated scan date for each IP address
-print("IP Address\tSite Name\tLast Scan Date")
-for ip_address, site_name, last_scan_date in site_info:
-    print(f"{ip_address}\t{site_name}\t{last_scan_date}")
+    asset_id = asset_json['resources'][0]['id']
+    asset_ids.append(asset_id)
+
+# API call to retrieve last authenticated scan date for each asset
+asset_dates = []
+for asset_id in asset_ids:
+    scan_url = f"https://nexpose_url:port/api/3/assets/{asset_id}/authenticated_scan"
+    scan_response = requests.get(scan_url, auth=(username, password), verify=False)
+    if scan_response.status_code != 200:
+        print(f"Error retrieving scan date for asset {asset_id}: {scan_response.status_code}")
+        continue
+
+    scan_json = scan_response.json()
+    last_scan_date = scan_json.get('lastScan', 'N/A')
+    asset_dates.append((asset_id, last_scan_date))
+
+# Print last authenticated scan date for each asset
+for asset_id, last_scan_date in asset_dates:
+    print(f"Asset ID {asset_id}: {last_scan_date}")
