@@ -4,44 +4,30 @@ from getpass import getpass
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-# Get username and password from user
 username = input("Username (E-id): ")
 password = getpass("Password: ")
 
-# Read IP addresses from input file
-with open("ips.txt", "r") as f:
-    ips = [line.strip() for line in f]
+# API call to retrieve all the sites
+ips_file = "ips.txt"
+with open(ips_file, "r") as f:
+    ips = f.read().splitlines()
 
-# API call to retrieve asset IDs for the specified IP addresses
+# API call to retrieve the asset ID of each IP
 asset_ids = []
 for ip in ips:
-    asset_url = f"https://nexpose_url:port/api/3/assets?filter=search%3A%3D{ip}"
-    asset_response = requests.get(asset_url, auth=(username, password), verify=False)
-    if asset_response.status_code != 200:
-        print(f"Error retrieving assets for {ip}: {asset_response.status_code}")
+    assets_url = f"https://nexpose_url:port/api/3/assets?ip={ip}"
+    assets_response = requests.get(assets_url, auth=(username, password), verify=False)
+    if assets_response.status_code != 200:
+        print(f"Error retrieving assets: {assets_response.status_code}")
         continue
 
-    asset_json = asset_response.json()
-    if 'resources' not in asset_json or len(asset_json['resources']) == 0:
-        print(f"No assets found for {ip}")
-        continue
+    assets_json = assets_response.json()
+    if assets_json["resources"]:
+        asset_id = assets_json["resources"][0]["id"]
+        asset_ids.append(asset_id)
+    else:
+        print(f"No asset found for IP: {ip}")
 
-    asset_id = asset_json['resources'][0]['id']
-    asset_ids.append(asset_id)
-
-# API call to retrieve last authenticated scan date for each asset
-asset_dates = []
-for asset_id in asset_ids:
-    scan_url = f"https://nexpose_url:port/api/3/assets/{asset_id}/authenticated_scan"
-    scan_response = requests.get(scan_url, auth=(username, password), verify=False)
-    if scan_response.status_code != 200:
-        print(f"Error retrieving scan date for asset {asset_id}: {scan_response.status_code}")
-        continue
-
-    scan_json = scan_response.json()
-    last_scan_date = scan_json.get('lastScan', 'N/A')
-    asset_dates.append((asset_id, last_scan_date))
-
-# Print last authenticated scan date for each asset
-for asset_id, last_scan_date in asset_dates:
-    print(f"Asset ID {asset_id}: {last_scan_date}")
+# Print the asset IDs for each IP
+for ip, asset_id in zip(ips, asset_ids):
+    print(f"IP: {ip} - Asset ID: {asset_id}")
