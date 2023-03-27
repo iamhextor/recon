@@ -1,66 +1,45 @@
-import dns.resolver
-from termcolor import colored
+import requests
+import urllib3
+from getpass import getpass
+import time
+from progress.bar import IncrementalBar
 
-# Define the filename containing the URLs
-filename = "urls.txt"
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-# Open the file and read in the URLs
-with open(filename) as f:
-    urls = f.readlines()
+username = input("Username (E-id): ")
+password = getpass("Password: ")
+ips_file = input("Enter the path of the IP list file: ")
 
-# Iterate over the URLs and retrieve the SPF and DMARC records
-for url in urls:
-    # Strip newline character from the end of the URL
-    url = url.rstrip()
-    
-    # Retrieve the SPF record
-    try:
-        spf_answer = dns.resolver.query(url, 'TXT')
-        spf_found = False
-        for rdata in spf_answer:
-            if 'v=spf1' in str(rdata):
-                spf_found = True
-                spf_result = colored("SPF record published.", "green")
-                break
-        if not spf_found:
-            spf_result = colored("No SPF record published.", "red")
-    except:
-        spf_result = colored("No SPF record published.", "red")
-    
-    # Retrieve the DMARC record
-    try:
-        dmarc_answer = dns.resolver.query(f"_dmarc.{url}", 'TXT')
-        dmarc_found = False
-        for rdata in dmarc_answer:
-            if 'v=DMARC1' in str(rdata):
-                dmarc_found = True
-                dmarc_result = colored("DMARC record published.", "green")
-                
-                # Check if a DMARC policy is enabled
-                dmarc_policy = [x.split(";") for x in rdata.strings][0]
-                if any(x.strip().startswith("p=quarantine") or x.strip().startswith("p=reject") for x in dmarc_policy):
-                    dmarc_policy_result = colored("DMARC policy enabled.", "green")
-                else:
-                    dmarc_policy_result = colored("DMARC policy not enabled.", "yellow")
-                break
-        if not dmarc_found:
-            dmarc_result = colored("No DMARC record published.", "red")
-            dmarc_policy_result = ""
-    except:
-        dmarc_result = colored("No DMARC record published.", "red")
-        dmarc_policy_result = ""
-        
-    # Check if DNS record is published
-    try:
-        dns_answer = dns.resolver.query(url, 'A')
-        dns_result = colored("DNS record published.", "green")
-    except:
-        dns_result = colored("No DNS record published.", "red")
-    
-    # Print the results for the current URL
-    print(url)
-    print(spf_result)
-    print(dmarc_result)
-    print(dmarc_policy_result)
-    print(dns_result)
-    print("="*30)
+# Read IP addresses from input file
+with open(ips_file, "r") as f:
+    ip_list = f.read().splitlines()
+
+# API call to retrieve site information for each IP address
+site_info = []
+with IncrementalBar('Processing', max=len(ip_list)) as bar:
+    for ip_address in ip_list:
+        time.sleep(0.1)  # Add some delay to avoid rate limiting
+        sites_url = f"https://nexpose_url:port/api/3/sites/ip-address/{ip_address}"
+        sites_response = requests.get(sites_url, auth=(username, password), verify=False)
+        if sites_response.status_code == 200:
+            sites_json = sites_response.json()
+            site_id = sites_json['resources'][0]['id']
+            site_name = sites_json['resources'][0]['name']
+
+            # API call to retrieve last authenticated scan date for the site
+            last_scan_url = f"https://nexpose_url:port/api/3/sites/{site_id}/scans/latest/authenticated"
+            last_scan_response = requests.get(last_scan_url, auth=(username, password), verify=False)
+            if last_scan_response.status_code == 200:
+                last_scan_json = last_scan_response.json()
+                last_scan_date = last_scan_json['endTime']
+                site_info.append((ip_address, site_name, last_scan_date))
+            else:
+                site_info.append((ip_address, site_name, "N/A"))
+        else:
+            site_info.append((ip_address, "N/A", "N/A"))
+        bar.next()
+
+# Printing last authenticated scan date for each IP address
+print("IP Address\tSite Name\tLast Scan Date")
+for ip_address, site_name, last_scan_date in site_info:
+    print(f"{ip_address}\t{site_name}\t{last_scan_date}")
