@@ -1,1 +1,32 @@
 
+#!/bin/bash
+
+# Prompt the user to enter the input file name
+read -p "Enter the input file name: " input_file
+
+# Get the name of the input file without the extension
+input_file_name="${input_file%.*}"
+
+# Create a directory with the same name as the input file
+output_dir="$input_file_name_$(date +%Y%m%d_%H%M%S)"
+mkdir "$output_dir"
+
+# Loop through each line in the input file
+while read domain; do
+    # Use the Shodan CLI tool to search for HTTP servers related to the domain
+    shodan search http.title:"$domain" --fields ip_str,port,http.title,data --separator , > shodan_results.csv
+    
+    # Extract the URLs from the CSV file
+    awk -F "," '{print $4}' shodan_results.csv | grep -oP 'http.*' | while read url; do
+        # Save the output of the URL in a file
+        domain_name=$(echo "$domain" | sed 's/[^a-zA-Z0-9]/_/g')
+        filename="$domain_name.txt"
+        curl -s -o "$output_dir/$filename" "$url"
+        echo "Saved output of $url to $output_dir/$filename"
+    done
+    
+    # Remove the temporary files
+    rm shodan_results.csv
+done < "$input_file"
+
+echo "Done. Output files are saved in $output_dir"
